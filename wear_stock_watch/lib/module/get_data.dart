@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:wear_stock/models/walletItem.dart';
 import '../main.dart';
-import '../models/data.dart';
+import '../models/dataItem.dart';
 
 const String binanceURL = 'https://api.binance.com/api/v3/ticker/24hr?symbols=';
+const String binanceURLSingle = 'https://api.binance.com/api/v3/ticker/24hr?symbol=';
 const String yahooURL = 'https://query1.finance.yahoo.com/v7/finance/options/';
 
-Future<List<Data>?> getData() async {
+Future<List<DataItem>?> getData() async {
   try {
     //parseSetting
     final List setting = box.get('setting');
@@ -16,20 +18,20 @@ Future<List<Data>?> getData() async {
     List symbolsYahoo = [];
     for (var element in setting) {
       if(element['type']=='Binance') {
-        symbolsBinance.add(element['name']);
+        symbolsBinance.add(element['symbol']);
       }
       else {
-        symbolsYahoo.add(element['name']);
+        symbolsYahoo.add(element['symbol']);
       }
     }
     //Binance
     final String symbolsJSONBinance = jsonEncode(symbolsBinance);
     final http.Response res = await http.get(Uri.parse('$binanceURL$symbolsJSONBinance'));
     final List resBodyBinance = jsonDecode(res.body);
-    List<Data> listBinance = [];
+    List<DataItem> listBinance = [];
     for(int i=0; i<resBodyBinance.length; i++) {
       final priceChange = double.parse(resBodyBinance[i]['priceChangePercent']);
-      listBinance.add(Data(
+      listBinance.add(DataItem(
         symbol: resBodyBinance[i]['symbol'],
         price: double.parse(resBodyBinance[i]['lastPrice']).toStringAsFixed(2),
         changePercent: '${priceChange.toStringAsFixed(2)}%',
@@ -40,12 +42,12 @@ Future<List<Data>?> getData() async {
       ));
     }
     //Yahoo
-    List<Data> listYahoo = [];
+    List<DataItem> listYahoo = [];
     for (var symbolYahoo in symbolsYahoo) {
       final http.Response resYahoo = await http.get(Uri.parse('$yahooURL$symbolYahoo'));
       final jsonYahoo = jsonDecode(resYahoo.body);
       final dataYahoo = jsonYahoo['optionChain']['result'][0]['quote'];
-      listYahoo.add(Data(
+      listYahoo.add(DataItem(
         symbol: symbolYahoo,
         price: dataYahoo['regularMarketPrice'].toStringAsFixed(2),
         changePercent: '${dataYahoo['regularMarketChangePercent'].toStringAsFixed(2)}%',
@@ -56,16 +58,53 @@ Future<List<Data>?> getData() async {
       ));
     }
     //resList
-    List<Data> list = [...listYahoo, ...listBinance];
-    List<Data> parsedList = [];
+    List<DataItem> list = [...listYahoo, ...listBinance];
+    List<DataItem> parsedList = [];
     for (var element in setting) {
       for(int i=0; i<list.length; i++) {
-        if(list[i].symbol==element['name']) {
+        if(list[i].symbol==element['symbol']) {
           parsedList.add(list[i]);
           list.removeAt(i);
           break;
         }
       }
+    }
+    return parsedList;
+  } catch(error) {
+    print(error);
+    return null;
+  }
+}
+
+Future<List<WalletItem>?> getWallet() async {
+  try {
+    //parseWallet
+    final List<WalletItem> parsedList = [];
+    final List wallet = box.get('wallet');
+    if(wallet.isEmpty) return [];
+    for (var element in wallet) {
+      final http.Response res = await http.get(Uri.parse('${element['type']=='Binance'?binanceURLSingle:yahooURL}${element['symbol']}'));
+      final json = jsonDecode(res.body);
+      final Map dataItem;
+      if(element['type']=='Yahoo') {
+        final data = json['optionChain']['result'][0]['quote'];
+        dataItem = {
+          'price': data['regularMarketPrice'],
+          'color': data['regularMarketChangePercent'] == 0 ? Colors.white : data['regularMarketChangePercent'] > 0 ? Colors.green : Colors.red,
+        };
+      }
+      else {
+        final priceChange = double.parse(json['priceChangePercent']);
+        dataItem = {
+          'price': double.parse(json['lastPrice']),
+          'color': priceChange == 0 ? Colors.white : priceChange > 0 ? Colors.green : Colors.red,
+        };
+      }
+      parsedList.add(WalletItem(
+          symbol: element['symbol'],
+          price: (element['count']*dataItem['price']).toStringAsFixed(2),
+          color: dataItem['color']
+      ));
     }
     return parsedList;
   } catch(error) {

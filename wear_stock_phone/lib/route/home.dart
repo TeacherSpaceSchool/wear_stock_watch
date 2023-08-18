@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import '../widget/dialog/add_element.dart';
 import '../widget/dialog/index.dart';
 import '../main.dart';
+import '../widget/snack_bar.dart';
 
 class HomePage extends HookWidget  {
 
@@ -11,26 +12,39 @@ class HomePage extends HookWidget  {
 
 	@override
 	Widget build(BuildContext context) {
+		final tabController = useTabController(initialLength: 2);
 		final setting = useState<List>([]);
+		final wallet = useState<List>([]);
 		useEffect(() {
-			List setting_ = box.get('setting');
-			setting.value = [...setting_];
+			setting.value = box.get('setting');
+			wallet.value = box.get('wallet');
 		}, []);
 		//add
 		add() async {
 			final Map<String, dynamic>? resultDialog = await showMyDialog(
-				content: const AddElementDialog(),
+				content: AddElementDialog(idx: tabController.index),
 				title: 'Добавить'
 			);
 			if(resultDialog!=null) {
-				setting.value = [resultDialog, ...setting.value];
+				if(tabController.index==0) {
+					setting.value = [resultDialog, ...setting.value];
+				}
+				else {
+					wallet.value = [resultDialog, ...wallet.value];
+				}
 				HapticFeedback.vibrate();
 			}
 		}
 		//delete
 		delete(int idx) {
-			setting.value.removeAt(idx);
-			setting.value = [...setting.value];
+			List list = tabController.index==0?setting.value:wallet.value;
+			list.removeAt(idx);
+			if(tabController.index==0) {
+			    setting.value = [...list];
+			}
+			else {
+				wallet.value = [...list];
+			}
 			HapticFeedback.vibrate();
 		}
 		//onReorder
@@ -38,23 +52,44 @@ class HomePage extends HookWidget  {
 			if (oldIndex < newIndex) {
 				newIndex -= 1;
 			}
-			final Map item = setting.value.removeAt(oldIndex);
-			setting.value.insert(newIndex, item);
-			setting.value = [...setting.value];
+			List list = tabController.index==0?setting.value:wallet.value;
+			final Map item = list.removeAt(oldIndex);
+			list.insert(newIndex, item);
+			if(tabController.index==0) {
+			  setting.value = [...list];
+			} else {
+			  wallet.value = [...list];
+			}
 			HapticFeedback.vibrate();
 		}
 		//sync
 		sync() {
 			box.put('setting', setting.value);
-			watch.sendMessage({'setting': setting.value});
+			box.put('wallet', setting.value);
+			watch.sendMessage({
+				'setting': setting.value,
+				'wallet': wallet.value,
+			});
 			HapticFeedback.vibrate();
+			showSnackBar('SYNC', type: 's');
 		}
 		return Scaffold(
+			appBar: AppBar(
+				bottom: TabBar(
+					controller: tabController,
+					tabs: const [
+						Tab(icon: Icon(Icons.timeline)),
+						Tab(icon: Icon(Icons.wallet)),
+					],
+				),
+				title: const Text('WearStock'),
+			),
 			body: SafeArea(
-				child: Stack(
-					fit: StackFit.expand,
+				child: TabBarView(
+					controller: tabController,
 					children: [
 						ReorderableListView(
+							key: const ValueKey(0),
 							padding: const EdgeInsets.only(top: 10, right: 10, left: 10, bottom: 65),
 							proxyDecorator: proxyDecorator,
 							children: [
@@ -70,7 +105,7 @@ class HomePage extends HookWidget  {
 														crossAxisAlignment: CrossAxisAlignment.start,
 														children: [
 															Text(
-																setting.value[idx]['name']
+																setting.value[idx]['symbol']
 															),
 															Text(
 																setting.value[idx]['type'],
@@ -94,7 +129,49 @@ class HomePage extends HookWidget  {
 									)
 							],
 							onReorder: (int oldIndex, int newIndex) => onReorder(oldIndex, newIndex),
-						)
+						),
+						ReorderableListView(
+							key: const ValueKey(1),
+							padding: const EdgeInsets.only(top: 10, right: 10, left: 10, bottom: 65),
+							proxyDecorator: proxyDecorator,
+							children: [
+								for (int idx = 0; idx < wallet.value.length; idx += 1)
+									Padding(
+										key: ValueKey(idx),
+										padding: const EdgeInsets.all(5),
+										child: Row(
+											crossAxisAlignment: CrossAxisAlignment.center,
+											children: [
+												Expanded(
+													child: Column(
+														crossAxisAlignment: CrossAxisAlignment.start,
+														children: [
+															Text(
+																'${wallet.value[idx]['count']} ${wallet.value[idx]['symbol']}'
+															),
+															Text(
+																wallet.value[idx]['type'],
+																style: Theme.of(context).textTheme.bodySmall
+															)
+														]
+													)
+												),
+												InkWell(
+													child: const IconButton(
+														icon: Icon(
+															Icons.delete,
+															color: Colors.red,
+															size: 30
+														), onPressed: null,
+													),
+													onLongPress: () => delete(idx),
+												)
+											],
+										)
+									)
+							],
+							onReorder: (int oldIndex, int newIndex) => onReorder(oldIndex, newIndex),
+						),
 					]
 				)
 			),

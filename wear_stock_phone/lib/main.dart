@@ -22,6 +22,16 @@ void main() async {
     if(box.get('setting')==null) {
         box.put('setting', []);
     }
+    if(box.get('wallet')==null) {
+        box.put('wallet', []);
+    }
+    box.put('wallet', [
+        {
+            'symbol': 'BTCUSDT',
+            'type': 'Binance',
+            'count': 0.23
+        }
+    ]);
     //WatchConnectivity
     watch = WatchConnectivity();
     //initialApp

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import '../../module/get_data.dart';
-import '../models/data.dart';
+import '../models/dataItem.dart';
 import '../module/app_data.dart';
 
 class DataPage extends HookWidget  {
-	final Data element;
+	final DataItem element;
 
 	const DataPage({super.key, required this.element});
 
@@ -27,9 +25,7 @@ class DataPage extends HookWidget  {
 								Icons.arrow_back_ios_new,
 								color: Colors.indigo
 							),
-							onPressed: () {
-								Navigator.pop(context);
-							}
+							onPressed: () => Navigator.pop(context)
 						)
 					),
 					Column(
@@ -37,7 +33,7 @@ class DataPage extends HookWidget  {
 						mainAxisAlignment: MainAxisAlignment.center,
 						children: [
 							Text(
-								element.symbol,
+								element.symbol!,
 								style: TextStyle(
 									color: element.color
 								)

@@ -27,6 +27,9 @@ void main() async {
     if(box.get('setting')==null) {
         box.put('setting', []);
     }
+    if(box.get('wallet')==null) {
+        box.put('wallet', []);
+    }
     //WatchConnectivity
     watch = WatchConnectivity();
     //initialApp
@@ -45,6 +48,7 @@ class MyApp extends HookConsumerWidget {
         useEffect(() {
             StreamSubscription dataStream = watch.messageStream.listen((message) {
                 box.put('setting', message['setting']);
+                box.put('wallet', message['wallet']);
                 showSnackBar('SYNC', type: 's');
             });
             return () => dataStream.cancel();
